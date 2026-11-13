@@ -46,27 +46,22 @@ comentarios = st.text_area("Observaciones (Quiebres, precios erróneos, exhibici
 st.subheader("2. Registro de Fotos")
 st.write("Sube las fotos correspondientes a cada zona:")
 
-# Pestañas adaptadas al trabajo de mercaderista en tienda
 tab1, tab2, tab3, tab4 = st.tabs(["Lineal / Góndola", "Cabeceras (Puntas)", "Precios / Viñetas", "Exhibición Adicional"])
 
 with tab1:
     st.markdown("### 🏬 Lineal Principal (Góndola)")
-    st.write("Fotos de cómo queda el pasillo ordenado (Electro o Ferretería).")
     fotos_gondola = st.file_uploader("Fotos de Lineal", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="gondola")
 
 with tab2:
     st.markdown("### 🎯 Cabeceras / Puntas de Góndola")
-    st.write("Exhibiciones especiales en los extremos de los pasillos.")
     fotos_cabecera = st.file_uploader("Fotos de Cabeceras", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="cabecera")
 
 with tab3:
     st.markdown("### 💲 Precios y Viñetas / Cenefas")
-    st.write("Verificación de precios correctos en anaquel.")
     fotos_precios = st.file_uploader("Fotos de Precios", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="precios")
 
 with tab4:
     st.markdown("### 📦 Exhibición Adicional / Isla")
-    st.write("Tarimas, islas centrales o material POP adicional.")
     fotos_adicional = st.file_uploader("Fotos Adicionales", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="adicional")
 
 # --- 3. PROCESAMIENTO Y ENVÍO ---
@@ -89,11 +84,10 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                         for i, archivo in enumerate(lista_archivos):
                             img = Image.open(archivo)
                             
-                            # Corrección aplicada: Evita error si la imagen tiene transparencia (RGBA)
+                            # Evita error si la imagen tiene transparencia (RGBA / P)
                             if img.mode in ("RGBA", "P"):
                                 img = img.convert("RGB")
                                 
-                            # Redimensionar para ahorrar datos móviles y espacio
                             img.thumbnail((1280, 1280))
                             
                             img_byte_arr = io.BytesIO()
@@ -119,7 +113,7 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
 
                 zip_buffer.seek(0)
 
-                # Configuración de Envío SMTP (Gmail)
+                # Configuración de Envío SMTP usando puerto 587 y STARTTLS
                 remitente = st.secrets["EMAIL_USER"]
                 password = st.secrets["EMAIL_PASS"]
 
@@ -134,7 +128,9 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                 nombre_zip = f"Reporte_{nombre_tienda.replace(' ', '_')}_{area_tottus}_{fecha_hoy}.zip"
                 msg.add_attachment(zip_buffer.getvalue(), maintype='application', subtype='zip', filename=nombre_zip)
 
-                with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                # Conexión segura mediante puerto 587 con STARTTLS
+                with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
+                    smtp.starttls()
                     smtp.login(remitente, password)
                     smtp.send_message(msg)
 
