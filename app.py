@@ -121,3 +121,24 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
 
                 # Configuración de Envío SMTP (Gmail)
                 remitente = st.secrets["EMAIL_USER"]
+                password = st.secrets["EMAIL_PASS"]
+
+                msg = EmailMessage()
+                msg['Subject'] = f"[Reporte Tottus {area_tottus}] {nombre_tienda} - {fecha_hoy}"
+                msg['From'] = remitente
+                msg['To'] = email_destino
+                
+                cuerpo_mensaje = f"""Hola,\n\nAdjunto el reporte fotográfico de la visita:\n- Tienda: {nombre_tienda}\n- Área: {area_tottus}\n- Fecha: {fecha_hoy}\n\nObservaciones:\n{comentarios if comentarios else 'Ninguna.'}\n\nReporte generado automáticamente desde la App de Rutas."""
+                msg.set_content(cuerpo_mensaje)
+
+                nombre_zip = f"Reporte_{nombre_tienda.replace(' ', '_')}_{area_tottus}_{fecha_hoy}.zip"
+                msg.add_attachment(zip_buffer.getvalue(), maintype='application', subtype='zip', filename=nombre_zip)
+
+                with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                    smtp.login(remitente, password)
+                    smtp.send_message(msg)
+
+                st.success("¡Reporte enviado con éxito al supervisor! 🎉")
+                
+            except Exception as e:
+                st.error(f"Error al enviar: {e}")
