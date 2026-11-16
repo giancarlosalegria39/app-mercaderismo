@@ -34,9 +34,6 @@ if seleccion_ruta == "Otra tienda (Personalizada)":
 else:
     nombre_tienda = seleccion_ruta
 
-# Selector de Área principal en Tottus
-area_tottus = st.selectbox("Área de Trabajo:", ["Ferretería", "Electro", "Ambas áreas"])
-
 fecha_hoy = datetime.now().strftime("%Y-%m-%d")
 st.text(f"📅 Fecha: {fecha_hoy}")
 
@@ -46,7 +43,7 @@ comentarios = st.text_area("Observaciones (Quiebres, precios erróneos, exhibici
 st.subheader("2. Registro de Fotos")
 st.write("Sube las fotos correspondientes a cada zona:")
 
-# Pestañas personalizadas según tu solicitud
+# Pestañas personalizadas
 tab1, tab2, tab3, tab4 = st.tabs(["Ferretería", "Iluminación", "Automotor", "Exhibición Adicional"])
 
 with tab1:
@@ -100,7 +97,7 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                             img_byte_arr = img_byte_arr.getvalue()
                             
                             nombre_archivo = f"{nombre_carpeta}_{i+1}.jpg"
-                            ruta_en_zip = f"{nombre_tienda.replace(' ', '_')}_{area_tottus}_{fecha_hoy}/{nombre_carpeta}/{nombre_archivo}"
+                            ruta_en_zip = f"{nombre_tienda.replace(' ', '_')}_{fecha_hoy}/{nombre_carpeta}/{nombre_archivo}"
                             
                             zip_file.writestr(ruta_en_zip, img_byte_arr)
 
@@ -114,7 +111,7 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                         agregar_fotos_a_zip(fotos_adicional, "04_Exhibicion_Adicional")
                     
                     if comentarios:
-                        zip_file.writestr(f"{nombre_tienda.replace(' ', '_')}_{area_tottus}_{fecha_hoy}/observaciones.txt", comentarios)
+                        zip_file.writestr(f"{nombre_tienda.replace(' ', '_')}_{fecha_hoy}/observaciones.txt", comentarios)
 
                 zip_buffer.seek(0)
 
@@ -123,14 +120,14 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                 password = st.secrets["EMAIL_PASS"]
 
                 msg = EmailMessage()
-                msg['Subject'] = f"[Reporte Tottus {area_tottus}] {nombre_tienda} - {fecha_hoy}"
+                msg['Subject'] = f"[Reporte Tottus Ferretería] {nombre_tienda} - {fecha_hoy}"
                 msg['From'] = remitente
                 msg['To'] = email_destino
                 
-                cuerpo_mensaje = f"""Hola,\n\nAdjunto el reporte fotográfico de la visita:\n- Tienda: {nombre_tienda}\n- Área: {area_tottus}\n- Fecha: {fecha_hoy}\n\nObservaciones:\n{comentarios if comentarios else 'Ninguna.'}\n\nReporte generado automáticamente desde la App de Rutas."""
+                cuerpo_mensaje = f"""Hola,\n\nAdjunto el reporte fotográfico de la visita:\n- Tienda: {nombre_tienda}\n- Fecha: {fecha_hoy}\n\nObservaciones:\n{comentarios if comentarios else 'Ninguna.'}\n\nReporte generado automáticamente desde la App de Rutas."""
                 msg.set_content(cuerpo_mensaje)
 
-                nombre_zip = f"Reporte_{nombre_tienda.replace(' ', '_')}_{area_tottus}_{fecha_hoy}.zip"
+                nombre_zip = f"Reporte_{nombre_tienda.replace(' ', '_')}_{fecha_hoy}.zip"
                 msg.add_attachment(zip_buffer.getvalue(), maintype='application', subtype='zip', filename=nombre_zip)
 
                 # Conexión segura mediante puerto 587 con STARTTLS
