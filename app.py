@@ -13,7 +13,7 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("🛒 Reporte Tottus: Electro & Ferretería")
+st.title("🛒 Reporte Tottus: Ferretería & Secciones")
 st.write("Selecciona tu tienda, sube las fotos por sección y envíalas directo al correo.")
 
 # --- 1. DATOS DE LA VISITA Y RUTA ---
@@ -35,33 +35,38 @@ else:
     nombre_tienda = seleccion_ruta
 
 # Selector de Área principal en Tottus
-area_tottus = st.selectbox("Área de Trabajo:", ["Electro", "Ferretería / Hogar", "Ambas áreas"])
+area_tottus = st.selectbox("Área de Trabajo:", ["Ferretería", "Electro", "Ambas áreas"])
 
 fecha_hoy = datetime.now().strftime("%Y-%m-%d")
 st.text(f"📅 Fecha: {fecha_hoy}")
 
-comentarios = st.text_area("Observaciones (Quiebres, precios erróneos, exhibiciones):", placeholder="Ej. Falta exhibir tal modelo en Electro...")
+comentarios = st.text_area("Observaciones (Quiebres, precios erróneos, exhibiciones):", placeholder="Ej. Falta exhibir tal modelo...")
 
 # --- 2. REGISTRO FOTOGRÁFICO POR ZONA ---
 st.subheader("2. Registro de Fotos")
 st.write("Sube las fotos correspondientes a cada zona:")
 
-tab1, tab2, tab3, tab4 = st.tabs(["Lineal / Góndola", "Cabeceras (Puntas)", "Precios / Viñetas", "Exhibición Adicional"])
+# Pestañas personalizadas según tu solicitud
+tab1, tab2, tab3, tab4 = st.tabs(["Ferretería", "Iluminación", "Automotor", "Exhibición Adicional"])
 
 with tab1:
-    st.markdown("### 🏬 Lineal Principal (Góndola)")
-    fotos_gondola = st.file_uploader("Fotos de Lineal", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="gondola")
+    st.markdown("### 🔧 Ferretería")
+    st.write("Fotos de la sección de ferretería.")
+    fotos_ferreteria = st.file_uploader("Fotos de Ferretería", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="ferreteria")
 
 with tab2:
-    st.markdown("### 🎯 Cabeceras / Puntas de Góndola")
-    fotos_cabecera = st.file_uploader("Fotos de Cabeceras", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="cabecera")
+    st.markdown("### 💡 Iluminación")
+    st.write("Fotos de la sección de iluminación.")
+    fotos_iluminacion = st.file_uploader("Fotos de Iluminación", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="iluminacion")
 
 with tab3:
-    st.markdown("### 💲 Precios y Viñetas / Cenefas")
-    fotos_precios = st.file_uploader("Fotos de Precios", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="precios")
+    st.markdown("### 🚗 Automotor")
+    st.write("Fotos de la sección automotor.")
+    fotos_automotor = st.file_uploader("Fotos de Automotor", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="automotor")
 
 with tab4:
-    st.markdown("### 📦 Exhibición Adicional / Isla")
+    st.markdown("### 📦 Exhibición Adicional")
+    st.write("Tarimas, islas centrales o material POP adicional.")
     fotos_adicional = st.file_uploader("Fotos Adicionales", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="adicional")
 
 # --- 3. PROCESAMIENTO Y ENVÍO ---
@@ -99,12 +104,12 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                             
                             zip_file.writestr(ruta_en_zip, img_byte_arr)
 
-                    if fotos_gondola:
-                        agregar_fotos_a_zip(fotos_gondola, "01_Lineal_Gondola")
-                    if fotos_cabecera:
-                        agregar_fotos_a_zip(fotos_cabecera, "02_Cabeceras")
-                    if fotos_precios:
-                        agregar_fotos_a_zip(fotos_precios, "03_Precios_Viñetas")
+                    if fotos_ferreteria:
+                        agregar_fotos_a_zip(fotos_ferreteria, "01_Ferreteria")
+                    if fotos_iluminacion:
+                        agregar_fotos_a_zip(fotos_iluminacion, "02_Iluminacion")
+                    if fotos_automotor:
+                        agregar_fotos_a_zip(fotos_automotor, "03_Automotor")
                     if fotos_adicional:
                         agregar_fotos_a_zip(fotos_adicional, "04_Exhibicion_Adicional")
                     
