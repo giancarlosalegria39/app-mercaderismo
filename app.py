@@ -14,10 +14,13 @@ st.set_page_config(
 )
 
 st.title("🛒 Reporte Tottus: Ferretería & Secciones")
-st.write("Selecciona tu tienda, sube las fotos por sección y envíalas directo al correo.")
+st.write("Registra tus datos, sube las fotos por sección y envía tu reporte.")
 
-# --- 1. DATOS DE LA VISITA Y RUTA ---
-st.subheader("1. Datos de la Tienda")
+# --- 1. DATOS DEL MERCADERISTA Y TIENDA ---
+st.subheader("1. Datos de la Visita")
+
+# Nuevo campo para identificar al mercaderista
+nombre_mercaderista = st.text_input("👤 Tu Nombre y Apellido:", placeholder="Ej. Juan Pérez")
 
 rutas_frecuentes = [
     "Tottus Huaylas",
@@ -43,39 +46,46 @@ comentarios = st.text_area("Observaciones (Quiebres, precios erróneos, exhibici
 st.subheader("2. Registro de Fotos")
 st.write("Sube las fotos correspondientes a cada zona:")
 
-# Pestañas personalizadas
 tab1, tab2, tab3, tab4 = st.tabs(["Ferretería", "Iluminación", "Automotor", "Exhibición Adicional"])
 
 with tab1:
     st.markdown("### 🔧 Ferretería")
-    st.write("Fotos de la sección de ferretería.")
     fotos_ferreteria = st.file_uploader("Fotos de Ferretería", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="ferreteria")
 
 with tab2:
     st.markdown("### 💡 Iluminación")
-    st.write("Fotos de la sección de iluminación.")
     fotos_iluminacion = st.file_uploader("Fotos de Iluminación", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="iluminacion")
 
 with tab3:
     st.markdown("### 🚗 Automotor")
-    st.write("Fotos de la sección automotor.")
     fotos_automotor = st.file_uploader("Fotos de Automotor", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="automotor")
 
 with tab4:
     st.markdown("### 📦 Exhibición Adicional")
-    st.write("Tarimas, islas centrales o material POP adicional.")
     fotos_adicional = st.file_uploader("Fotos Adicionales", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="adicional")
 
-# --- 3. PROCESAMIENTO Y ENVÍO ---
+# --- 3. CORREOS Y ENVÍO ---
 st.markdown("---")
+st.subheader("3. Destinatarios")
 email_destino = st.text_input("Correo del Supervisor:", placeholder="supervisor@empresa.com")
+email_copia = st.text_input("Tu Correo (para recibir copia de constancia):", placeholder="tucorreo@gmail.com")
 
 if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
-    if not nombre_tienda:
+    if not nombre_mercaderista:
+        st.error("Por favor ingresa tu nombre y apellido.")
+    elif not nombre_tienda:
         st.error("Por favor selecciona o ingresa una tienda.")
     elif not email_destino:
-        st.error("Por favor ingresa el correo del destinatario.")
+        st.error("Por favor ingresa el correo del supervisor.")
     else:
+        # Verificación previa de Secrets
+        try:
+            remitente = st.secrets["EMAIL_USER"]
+            password = st.secrets["EMAIL_PASS"]
+        except Exception:
+            st.error("⚠️ Faltan configurar los Secrets en Streamlit Cloud (EMAIL_USER y EMAIL_PASS).")
+            st.stop()
+
         with st.spinner("Optimizando fotos y creando reporte comprimido..."):
             try:
                 zip_buffer = io.BytesIO()
@@ -85,11 +95,8 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                     def agregar_fotos_a_zip(lista_archivos, nombre_carpeta):
                         for i, archivo in enumerate(lista_archivos):
                             img = Image.open(archivo)
-                            
-                            # Evita error si la imagen tiene transparencia (RGBA / P)
                             if img.mode in ("RGBA", "P"):
                                 img = img.convert("RGB")
-                                
                             img.thumbnail((1280, 1280))
                             
                             img_byte_arr = io.BytesIO()
@@ -97,7 +104,7 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                             img_byte_arr = img_byte_arr.getvalue()
                             
                             nombre_archivo = f"{nombre_carpeta}_{i+1}.jpg"
-                            ruta_en_zip = f"{nombre_tienda.replace(' ', '_')}_{fecha_hoy}/{nombre_carpeta}/{nombre_archivo}"
+                            ruta_en_zip = f"{nombre_tienda.replace(' ', '_')}_{nombre_mercaderista.replace(' ', '_')}_{fecha_hoy}/{nombre_carpeta}/{nombre_archivo}"
                             
                             zip_file.writestr(ruta_en_zip, img_byte_arr)
 
@@ -111,32 +118,33 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                         agregar_fotos_a_zip(fotos_adicional, "04_Exhibicion_Adicional")
                     
                     if comentarios:
-                        zip_file.writestr(f"{nombre_tienda.replace(' ', '_')}_{fecha_hoy}/observaciones.txt", comentarios)
+                        zip_file.writestr(f"{nombre_tienda.replace(' ', '_')}_{nombre_mercaderista.replace(' ', '_')}_{fecha_hoy}/observaciones.txt", comentarios)
 
                 zip_buffer.seek(0)
 
-                # Configuración de Envío SMTP usando puerto 587 y STARTTLS
-                remitente = st.secrets["EMAIL_USER"]
-                password = st.secrets["EMAIL_PASS"]
-
                 msg = EmailMessage()
-                msg['Subject'] = f"[Reporte Tottus Ferretería] {nombre_tienda} - {fecha_hoy}"
+                msg['Subject'] = f"[Reporte Tottus] Tienda: {nombre_tienda} | Mercaderista: {nombre_mercaderista} - {fecha_hoy}"
                 msg['From'] = remitente
-                msg['To'] = email_destino
                 
-                cuerpo_mensaje = f"""Hola,\n\nAdjunto el reporte fotográfico de la visita:\n- Tienda: {nombre_tienda}\n- Fecha: {fecha_hoy}\n\nObservaciones:\n{comentarios if comentarios else 'Ninguna.'}\n\nReporte generado automáticamente desde la App de Rutas."""
+                # Configurar destinatarios principal y copia (si el usuario ingresó su correo)
+                destinatarios = [email_destino]
+                if email_copia:
+                    destinatarios.append(email_copia)
+                msg['To'] = ", ".join(destinatarios)
+                
+                cuerpo_mensaje = f"""Hola,\n\nSe ha enviado un nuevo reporte fotográfico:\n- Mercaderista: {nombre_mercaderista}\n- Tienda: {nombre_tienda}\n- Fecha: {fecha_hoy}\n\nObservaciones:\n{comentarios if comentarios else 'Ninguna.'}\n\nReporte generado automáticamente desde la App de Rutas."""
                 msg.set_content(cuerpo_mensaje)
 
-                nombre_zip = f"Reporte_{nombre_tienda.replace(' ', '_')}_{fecha_hoy}.zip"
+                nombre_zip = f"Reporte_{nombre_tienda.replace(' ', '_')}_{nombre_mercaderista.replace(' ', '_')}_{fecha_hoy}.zip"
                 msg.add_attachment(zip_buffer.getvalue(), maintype='application', subtype='zip', filename=nombre_zip)
 
-                # Conexión segura mediante puerto 587 con STARTTLS
+                # Conexión SMTP
                 with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
                     smtp.starttls()
                     smtp.login(remitente, password)
                     smtp.send_message(msg)
 
-                st.success("¡Reporte enviado con éxito al supervisor! 🎉")
+                st.success("¡Reporte enviado con éxito al supervisor (y copia a tu correo)! 🎉")
                 
             except Exception as e:
                 st.error(f"Error al enviar: {e}")
