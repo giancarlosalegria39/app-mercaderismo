@@ -1,7 +1,6 @@
 import streamlit as st
 from PIL import Image
 import io
-import zipfile
 from datetime import datetime
 import smtplib
 from email.message import EmailMessage
@@ -19,7 +18,6 @@ st.write("Registra tus datos, sube las fotos por sección y envía tu reporte.")
 # --- 1. DATOS DEL MERCADERISTA Y TIENDA ---
 st.subheader("1. Datos de la Visita")
 
-# Nuevo campo para identificar al mercaderista
 nombre_mercaderista = st.text_input("👤 Tu Nombre y Apellido:", placeholder="Ej. Juan Pérez")
 
 rutas_frecuentes = [
@@ -78,7 +76,6 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
     elif not email_destino:
         st.error("Por favor ingresa el correo del supervisor.")
     else:
-        # Verificación previa de Secrets
         try:
             remitente = st.secrets["EMAIL_USER"]
             password = st.secrets["EMAIL_PASS"]
@@ -86,13 +83,23 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
             st.error("⚠️ Faltan configurar los Secrets en Streamlit Cloud (EMAIL_USER y EMAIL_PASS).")
             st.stop()
 
-        with st.spinner("Optimizando fotos y creando reporte comprimido..."):
+        with st.spinner("Optimizando fotos y preparando correo..."):
             try:
-                zip_buffer = io.BytesIO()
+                msg = EmailMessage()
+                msg['Subject'] = f"[Reporte Tottus] Tienda: {nombre_tienda} | Mercaderista: {nombre_mercaderista} - {fecha_hoy}"
+                msg['From'] = remitente
                 
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    
-                    def agregar_fotos_a_zip(lista_archivos, nombre_carpeta):
+                destinatarios = [email_destino]
+                if email_copia:
+                    destinatarios.append(email_copia)
+                msg['To'] = ", ".join(destinatarios)
+                
+                cuerpo_mensaje = f"""Hola,\n\nSe ha enviado un nuevo reporte fotográfico:\n- Mercaderista: {nombre_mercaderista}\n- Tienda: {nombre_tienda}\n- Fecha: {fecha_hoy}\n\nObservaciones:\n{comentarios if comentarios else 'Ninguna.'}\n\nLas fotos se encuentran adjuntas individualmente en este correo.\n\nReporte generado automáticamente desde la App de Rutas."""
+                msg.set_content(cuerpo_mensaje)
+
+                # Función para procesar y adjuntar cada foto individualmente
+                def adjuntar_fotos(lista_archivos, nombre_categoria):
+                    if lista_archivos:
                         for i, archivo in enumerate(lista_archivos):
                             img = Image.open(archivo)
                             if img.mode in ("RGBA", "P"):
@@ -101,42 +108,20 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                             
                             img_byte_arr = io.BytesIO()
                             img.save(img_byte_arr, format='JPEG', quality=85)
-                            img_byte_arr = img_byte_arr.getvalue()
                             
-                            nombre_archivo = f"{nombre_carpeta}_{i+1}.jpg"
-                            ruta_en_zip = f"{nombre_tienda.replace(' ', '_')}_{nombre_mercaderista.replace(' ', '_')}_{fecha_hoy}/{nombre_carpeta}/{nombre_archivo}"
-                            
-                            zip_file.writestr(ruta_en_zip, img_byte_arr)
+                            nombre_archivo = f"{nombre_categoria}_{i+1}.jpg"
+                            msg.add_attachment(
+                                img_byte_arr.getvalue(),
+                                maintype='image',
+                                subtype='jpeg',
+                                filename=nombre_archivo
+                            )
 
-                    if fotos_ferreteria:
-                        agregar_fotos_a_zip(fotos_ferreteria, "01_Ferreteria")
-                    if fotos_iluminacion:
-                        agregar_fotos_a_zip(fotos_iluminacion, "02_Iluminacion")
-                    if fotos_automotor:
-                        agregar_fotos_a_zip(fotos_automotor, "03_Automotor")
-                    if fotos_adicional:
-                        agregar_fotos_a_zip(fotos_adicional, "04_Exhibicion_Adicional")
-                    
-                    if comentarios:
-                        zip_file.writestr(f"{nombre_tienda.replace(' ', '_')}_{nombre_mercaderista.replace(' ', '_')}_{fecha_hoy}/observaciones.txt", comentarios)
-
-                zip_buffer.seek(0)
-
-                msg = EmailMessage()
-                msg['Subject'] = f"[Reporte Tottus] Tienda: {nombre_tienda} | Mercaderista: {nombre_mercaderista} - {fecha_hoy}"
-                msg['From'] = remitente
-                
-                # Configurar destinatarios principal y copia (si el usuario ingresó su correo)
-                destinatarios = [email_destino]
-                if email_copia:
-                    destinatarios.append(email_copia)
-                msg['To'] = ", ".join(destinatarios)
-                
-                cuerpo_mensaje = f"""Hola,\n\nSe ha enviado un nuevo reporte fotográfico:\n- Mercaderista: {nombre_mercaderista}\n- Tienda: {nombre_tienda}\n- Fecha: {fecha_hoy}\n\nObservaciones:\n{comentarios if comentarios else 'Ninguna.'}\n\nReporte generado automáticamente desde la App de Rutas."""
-                msg.set_content(cuerpo_mensaje)
-
-                nombre_zip = f"Reporte_{nombre_tienda.replace(' ', '_')}_{nombre_mercaderista.replace(' ', '_')}_{fecha_hoy}.zip"
-                msg.add_attachment(zip_buffer.getvalue(), maintype='application', subtype='zip', filename=nombre_zip)
+                # Añadir fotos de cada sección como archivos independientes
+                adjuntar_fotos(fotos_ferreteria, "Ferreteria")
+                adjuntar_fotos(fotos_iluminacion, "Iluminacion")
+                adjuntar_fotos(fotos_automotor, "Automotor")
+                adjuntar_fotos(fotos_adicional, "Exhibicion_Adicional")
 
                 # Conexión SMTP
                 with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
@@ -144,7 +129,7 @@ if st.button("🚀 Procesar y Enviar Reporte", type="primary"):
                     smtp.login(remitente, password)
                     smtp.send_message(msg)
 
-                st.success("¡Reporte enviado con éxito al supervisor (y copia a tu correo)! 🎉")
+                st.success("¡Reporte y fotos enviados con éxito! 🎉")
                 
             except Exception as e:
                 st.error(f"Error al enviar: {e}")
